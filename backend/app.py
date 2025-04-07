@@ -1,13 +1,14 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS                      # ✅ Add this line
+from flask_cors import CORS
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
 import os
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
-CORS(app)  # ✅ Enable CORS for all routes
+CORS(app)
 
 # Secret key for JWT
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'devsecret')
@@ -16,6 +17,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'devsecret')
 client = MongoClient("mongodb://localhost:27017/")
 db = client['chatbot_platform']
 super_admins = db['super_admins']
+college_users = db['college_users']
 
 # Default super admin user (on startup)
 def init_super_admin():
@@ -34,7 +36,7 @@ def init_super_admin():
     else:
         print("[Init] Super admin already exists.")
 
-# Login route
+# Super Admin Login
 @app.route('/api/super-admin/login', methods=['POST'])
 def super_admin_login():
     data = request.json
@@ -54,6 +56,61 @@ def super_admin_login():
     }, app.config['SECRET_KEY'], algorithm='HS256')
 
     return jsonify({"token": token}), 200
+
+# CRUD API: College Users
+
+# Get all college users
+@app.route('/api/college-users', methods=['GET'])
+def get_college_users():
+    users = list(college_users.find())
+    for user in users:
+        user['_id'] = str(user['_id'])
+    return jsonify(users)
+
+# Create new college user
+@app.route('/api/college-users', methods=['POST'])
+def create_college_user():
+    data = request.json
+    name = data.get('name')
+    email = data.get('email')
+    password = generate_password_hash(data.get('password'))
+
+    if not name or not email or not password:
+        return jsonify({"error": "Missing required fields."}), 400
+
+    user_id = college_users.insert_one({
+        "name": name,
+        "email": email,
+        "password": password,
+        "created_at": datetime.datetime.utcnow()
+    }).inserted_id
+
+    return jsonify({"message": "User created.", "id": str(user_id)}), 201
+
+# Update college user
+@app.route('/api/college-users/<user_id>', methods=['PUT'])
+def update_college_user(user_id):
+    data = request.json
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
+
+    update_data = {}
+    if name:
+        update_data['name'] = name
+    if email:
+        update_data['email'] = email
+    if password:
+        update_data['password'] = generate_password_hash(password)
+
+    college_users.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
+    return jsonify({"message": "User updated."}), 200
+
+# Delete college user
+@app.route('/api/college-users/<user_id>', methods=['DELETE'])
+def delete_college_user(user_id):
+    college_users.delete_one({"_id": ObjectId(user_id)})
+    return jsonify({"message": "User deleted."}), 200
 
 if __name__ == '__main__':
     with app.app_context():

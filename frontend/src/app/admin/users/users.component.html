@@ -1,0 +1,50 @@
+<app-header></app-header>
+
+<div class="users-container">
+  <h2>College Users</h2>
+
+  <button class="btn btn-primary mb-2" (click)="toggleCreateForm()">
+    {{ showCreateForm ? 'Close' : 'Create New User' }}
+  </button>
+
+  <div *ngIf="showCreateForm" class="create-form">
+    <input [(ngModel)]="newUser.name" placeholder="Name" class="form-control" />
+    <input [(ngModel)]="newUser.email" placeholder="Email" class="form-control" />
+    <input [(ngModel)]="newUser.password" placeholder="Password" type="password" class="form-control" />
+    <button class="btn btn-success mt-2" (click)="createUser()">Submit</button>
+  </div>
+
+  <div *ngIf="editMode" class="edit-form">
+    <h3>Edit User</h3>
+    <input [(ngModel)]="editUserData.name" placeholder="Name" class="form-control" />
+    <input [(ngModel)]="editUserData.email" placeholder="Email" class="form-control" />
+    <input [(ngModel)]="editUserData.password" placeholder="New Password (optional)" type="password" class="form-control" />
+    <button class="btn btn-primary mt-2" (click)="saveEdit()">Save</button>
+    <button class="btn btn-danger mt-2" (click)="cancelEdit()">Cancel</button>
+  </div>
+
+  <input type="text" placeholder="Search..." class="form-control mb-3" (keyup)="applyFilter($event)">
+
+  <table #usersTable id="usersTable" class="display table table-striped">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let user of dataSource">
+        <td>{{ user.name }}</td>
+        <td>{{ user.email }}</td>
+        <td>
+          <button class="btn btn-info btn-sm" (click)="viewUser(user)">View</button>
+          <button class="btn btn-warning btn-sm" (click)="startEdit(user)">Edit</button>
+          <button class="btn btn-danger btn-sm" (click)="deleteUser(user._id)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<app-footer></app-footer>
