@@ -73,15 +73,19 @@ def create_college_user():
     data = request.json
     name = data.get('name')
     email = data.get('email')
-    password = generate_password_hash(data.get('password'))
+    password = data.get('password')
+    status = data.get('status', 'Active')  # default to Active if not provided
 
     if not name or not email or not password:
         return jsonify({"error": "Missing required fields."}), 400
 
+    hashed_password = generate_password_hash(password)
+
     user_id = college_users.insert_one({
         "name": name,
         "email": email,
-        "password": password,
+        "password": hashed_password,
+        "status": status,
         "created_at": datetime.datetime.utcnow()
     }).inserted_id
 
@@ -94,6 +98,7 @@ def update_college_user(user_id):
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
+    status = data.get('status')
 
     update_data = {}
     if name:
@@ -102,6 +107,8 @@ def update_college_user(user_id):
         update_data['email'] = email
     if password:
         update_data['password'] = generate_password_hash(password)
+    if status:
+        update_data['status'] = status
 
     college_users.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
     return jsonify({"message": "User updated."}), 200

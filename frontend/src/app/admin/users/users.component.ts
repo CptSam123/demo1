@@ -6,7 +6,7 @@ import { HeaderComponent } from '../../header/header.component';
 import { FooterComponent } from '../../footer/footer.component';
 import $ from 'jquery';
 import 'datatables.net';
-
+import * as bootstrap from 'bootstrap';
 
 @Component({
   selector: 'app-users',
@@ -24,8 +24,7 @@ import 'datatables.net';
 export class UsersComponent implements OnInit, AfterViewInit {
   dataSource: any[] = [];
   newUser = { name: '', email: '', password: '' };
-  editMode = false;
-  showCreateForm = false;
+  selectedUser: any = null;
   editUserData: any = { _id: '', name: '', email: '', password: '' };
 
   @ViewChild('usersTable') usersTable!: ElementRef;
@@ -37,31 +36,47 @@ export class UsersComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // DataTable will be initialized after loadUsers runs
+    // Initialized in loadUsers after data is loaded
   }
 
   applyFilter(event: Event): void {
     const value = (event.target as HTMLInputElement).value.trim().toLowerCase();
     ($('#usersTable') as any).DataTable().search(value).draw();
   }
-
-  toggleCreateForm(): void {
-    this.showCreateForm = !this.showCreateForm;
-  }
+  shouldInitializeTable = false;
 
   loadUsers(): void {
+    // Destroy existing DataTable if present
+    const table = $('#usersTable');
+    if ($.fn.DataTable.isDataTable(table)) {
+      table.DataTable().clear().destroy();
+    }
+  
+    // Fetch users
     this.http.get<any[]>('http://localhost:5000/api/college-users').subscribe(users => {
       this.dataSource = users;
-
+  
+      // Step 1: Disable init temporarily
+      this.shouldInitializeTable = false;
+  
+      // Step 2: Allow DOM to update via *ngIf + setTimeout
       setTimeout(() => {
-        const table = $('#usersTable');
-        if ($.fn.DataTable.isDataTable(table)) {
-          table.DataTable().destroy();
-        }
-        table.DataTable();
-      }, 0);
+        this.shouldInitializeTable = true;
+  
+        setTimeout(() => {
+          $('#usersTable').DataTable({
+            columnDefs: [
+              { targets: 2, orderable: false } // Disable sort on Actions
+            ]
+          });
+        }, 0); // Init after DOM render
+      }, 0); // Delay to ensure ngIf reflects
     });
   }
+  
+  
+  
+  
 
   createUser(): void {
     if (!this.newUser.name || !this.newUser.email || !this.newUser.password) {
@@ -72,7 +87,8 @@ export class UsersComponent implements OnInit, AfterViewInit {
     this.http.post('http://localhost:5000/api/college-users', this.newUser).subscribe(() => {
       this.newUser = { name: '', email: '', password: '' };
       this.loadUsers();
-      this.showCreateForm = false;
+      alert('✅ User created successfully!');
+      this.closeOffcanvas('createUserCanvas');
     });
   }
 
@@ -85,24 +101,37 @@ export class UsersComponent implements OnInit, AfterViewInit {
   }
 
   viewUser(user: any): void {
-    alert(`Name: ${user.name}\nEmail: ${user.email}`);
-  }
-
-  startEdit(user: any): void {
+    this.selectedUser = user;
     this.editUserData = { ...user, password: '' };
-    this.editMode = true;
-  }
-
-  cancelEdit(): void {
-    this.editMode = false;
-    this.editUserData = { _id: '', name: '', email: '', password: '' };
   }
 
   saveEdit(): void {
     const id = this.editUserData._id;
     this.http.put(`http://localhost:5000/api/college-users/${id}`, this.editUserData).subscribe(() => {
       this.loadUsers();
+      alert('✅ User updated successfully!');
+      this.closeOffcanvas('editUserCanvas');
       this.cancelEdit();
     });
   }
+
+  cancelEdit(): void {
+    this.editUserData = { _id: '', name: '', email: '', password: '' };
+  }
+
+  closeOffcanvas(id: string): void {
+    const el = document.getElementById(id);
+    if (el) {
+      const bsOffcanvas = bootstrap.Offcanvas.getInstance(el) || new bootstrap.Offcanvas(el);
+      bsOffcanvas.hide();
+  
+      // ⛏️ Remove backdrop manually if stuck
+      const backdrops = document.querySelectorAll('.offcanvas-backdrop');
+      backdrops.forEach(backdrop => backdrop.remove());
+      
+      document.body.classList.remove('offcanvas-backdrop', 'show');
+      document.body.style.overflow = 'auto';
+    }
+  }
+  
 }
